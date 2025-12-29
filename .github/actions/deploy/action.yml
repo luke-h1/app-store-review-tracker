@@ -35,7 +35,7 @@ runs:
       shell: bash
       working-directory: terraform
       run: |
-        terraform init -backend-config="key=vpc/${{ inputs.environment }}.tfstate" -backend-config="bucket=foam-${{ inputs.environment }}-terraform-state" -input=false
+        terraform init -backend-config="key=vpc/${{ inputs.environment }}.tfstate" -backend-config="bucket=review-tracker-${{ inputs.environment }}-terraform-state" -input=false
 
     - name: Deploy DynamoDB lock table if not exists
       shell: bash

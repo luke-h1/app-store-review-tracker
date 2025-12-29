@@ -1,41 +1,38 @@
 import { EventBridgeEvent } from 'aws-lambda';
-import { fetchAppleReviews } from '../../services/appleReviews';
-import { fetchGoogleReviews } from '../../services/googleReviews';
-import { reviewExists, storeReview } from '../../services/dynamodb';
-import { postReviewsToSlack } from '../../services/slack';
+import { reviewsService } from '../../services/reviews';
+import { dynamodbService } from '../../services/dynamodb';
+import { slackService } from '../../services/slack';
 import {
   sendErrorToSlack,
   formatErrorForSlack,
 } from '../../services/slackErrors';
+import { parseAppIds } from '../../util/appIds';
+import { parseWebhookMap, getUniqueWebhooks } from '../../util/webhookMap';
 import type { ReviewCheckEvent } from '../../types/config';
-import type { ReviewHandlerParams } from '../../types/reviews';
+import type { UnifiedReview } from '../../types/reviews';
 
-/**
- * Scheduled handler for review checks
- * Processes all configured app IDs and posts new reviews to Slack channels
- */
+type ReviewWithMetadata = {
+  review: UnifiedReview;
+  appId: string;
+  platform: 'apple' | 'google';
+};
+
 export const scheduledReviewHandler = async (
   event: EventBridgeEvent<'Scheduled Event', unknown>,
 ): Promise<void> => {
-  console.log('Scheduled review check triggered:', event);
-
-  let slackWebhookUrls: string[] = [];
-
   try {
-    // Get config from event detail or environment variables
     const eventDetail = (event.detail || {}) as ReviewCheckEvent;
-
     const appleAppIds =
-      eventDetail.appleAppIds ||
-      (process.env.APPLE_APP_IDS ? process.env.APPLE_APP_IDS.split(',') : []);
+      eventDetail.appleAppIds || parseAppIds(process.env.APPLE_APP_IDS);
     const googleAppIds =
-      eventDetail.googleAppIds ||
-      (process.env.GOOGLE_APP_IDS ? process.env.GOOGLE_APP_IDS.split(',') : []);
-    slackWebhookUrls =
-      eventDetail.slackWebhookUrls ||
-      (process.env.SLACK_WEBHOOK_URLS
-        ? process.env.SLACK_WEBHOOK_URLS.split(',')
-        : []);
+      eventDetail.googleAppIds || parseAppIds(process.env.GOOGLE_APP_IDS);
+    const appWebhookMap = parseWebhookMap(process.env.APP_SLACK_WEBHOOK_MAP);
+
+    if (appWebhookMap.size === 0) {
+      throw new Error(
+        'No Slack webhook URLs configured in APP_SLACK_WEBHOOK_MAP',
+      );
+    }
 
     const country = eventDetail.country || process.env.COUNTRY || 'gb';
     const limit =
@@ -45,140 +42,107 @@ export const scheduledReviewHandler = async (
       (process.env.SORT_BY as 'mostRecent' | 'mostHelpful') ||
       'mostRecent';
 
-    if (slackWebhookUrls.length === 0) {
-      throw new Error('No Slack webhook URLs configured');
-    }
-
     if (appleAppIds.length === 0 && googleAppIds.length === 0) {
-      console.log('No app IDs configured, skipping review check');
       return;
     }
 
-    console.log(
-      `Processing ${appleAppIds.length} Apple apps and ${googleAppIds.length} Google apps`,
+    const allReviews = await reviewsService.fetchForApps(
+      appleAppIds,
+      googleAppIds,
+      {
+        country,
+        limit,
+        sortBy,
+      },
     );
 
-    const allReviews: Array<{
-      review: import('../../types/reviews').UnifiedReview;
-      appId: string;
-      platform: 'apple' | 'google';
-    }> = [];
+    const reviewsWithMetadata: ReviewWithMetadata[] = allReviews.map(
+      review => ({
+        review,
+        appId: review.appId,
+        platform: review.platform,
+      }),
+    );
 
-    // Fetch reviews for all Apple apps
-    for (const appleAppId of appleAppIds) {
-      if (!appleAppId.trim()) continue;
-
-      try {
-        const params: ReviewHandlerParams = {
-          appleAppId: appleAppId.trim(),
-          country,
-          limit,
-          sortBy,
-        };
-        const reviews = await fetchAppleReviews(params);
-        reviews.forEach(review => {
-          allReviews.push({
-            review,
-            appId: appleAppId.trim(),
-            platform: 'apple',
-          });
-        });
-        console.log(
-          `Fetched ${reviews.length} reviews for Apple app ${appleAppId}`,
+    const newReviews: ReviewWithMetadata[] = [];
+    const reviewChecks = reviewsWithMetadata.map(
+      async ({ review, appId, platform }) => {
+        const reviewIdentifier = dynamodbService.getReviewId(
+          platform,
+          appId,
+          review.id,
         );
-      } catch (error) {
-        console.error(
-          `Error fetching Apple reviews for app ${appleAppId}:`,
-          error,
-        );
-      }
-    }
-
-    // Fetch reviews for all Google apps
-    for (const googleAppId of googleAppIds) {
-      if (!googleAppId.trim()) continue;
-
-      try {
-        const params: ReviewHandlerParams = {
-          googleAppId: googleAppId.trim(),
-          country,
-          limit,
-          sortBy,
-        };
-        const reviews = await fetchGoogleReviews(params);
-        reviews.forEach(review => {
-          allReviews.push({
-            review,
-            appId: googleAppId.trim(),
-            platform: 'google',
-          });
-        });
-        console.log(
-          `Fetched ${reviews.length} reviews for Google app ${googleAppId}`,
-        );
-      } catch (error) {
-        console.error(
-          `Error fetching Google reviews for app ${googleAppId}:`,
-          error,
-        );
-      }
-    }
-
-    console.log(`Fetched ${allReviews.length} total reviews`);
-
-    // Get new reviews (using a simple identifier based on platform + app ID + review ID)
-    const newReviews: typeof allReviews = [];
-    for (const { review, appId, platform } of allReviews) {
-      const reviewIdentifier = `${platform}#${appId}#${review.id}`;
-      const exists = await reviewExists(reviewIdentifier);
-      if (!exists) {
-        newReviews.push({ review, appId, platform });
-        await storeReview(review, reviewIdentifier);
-      }
-    }
-
-    console.log(`Found ${newReviews.length} new reviews`);
-
-    // Post new reviews to all configured Slack channels
-    if (newReviews.length > 0) {
-      const reviewsToPost = newReviews.map(({ review }) => review);
-      for (const webhookUrl of slackWebhookUrls) {
-        if (webhookUrl.trim()) {
-          try {
-            await postReviewsToSlack(reviewsToPost, webhookUrl.trim());
-            console.log(
-              `Posted ${reviewsToPost.length} reviews to Slack channel`,
-            );
-          } catch (error) {
-            console.error(
-              `Error posting to Slack webhook ${webhookUrl}:`,
-              error,
-            );
-          }
+        const exists = await dynamodbService.reviewExists(reviewIdentifier);
+        if (!exists) {
+          await dynamodbService.storeReview(review, reviewIdentifier);
+          return { review, appId, platform };
         }
+        return null;
+      },
+    );
+
+    const results = await Promise.all(reviewChecks);
+    newReviews.push(
+      ...results.filter((r): r is ReviewWithMetadata => r !== null),
+    );
+
+    if (newReviews.length > 0) {
+      const reviewsByApp = new Map<string, UnifiedReview[]>();
+      for (const { review, appId, platform } of newReviews) {
+        const key = `${platform}:${appId}`;
+        if (!reviewsByApp.has(key)) {
+          reviewsByApp.set(key, []);
+        }
+        reviewsByApp.get(key)!.push(review);
       }
-    } else {
-      console.log('No new reviews to post');
+
+      const postTasks = Array.from(reviewsByApp.entries()).flatMap(
+        ([appKey, reviews]) => {
+          const webhookUrls = appWebhookMap.get(appKey);
+          if (!webhookUrls?.length) {
+            console.warn(
+              `No Slack webhook configured for ${appKey}, skipping notification`,
+            );
+            return [];
+          }
+          return webhookUrls
+            .filter(url => url.trim())
+            .map(async url => {
+              try {
+                await slackService.postReviews(reviews, url.trim());
+              } catch (error) {
+                console.error(
+                  `Error posting to Slack webhook ${url} for ${appKey}:`,
+                  error,
+                );
+              }
+            });
+        },
+      );
+
+      await Promise.all(postTasks);
     }
   } catch (error) {
     console.error('Error in scheduled review handler:', error);
 
-    // Send error to all Slack channels
-    for (const webhookUrl of slackWebhookUrls) {
-      if (webhookUrl.trim()) {
+    const webhookMap = parseWebhookMap(process.env.APP_SLACK_WEBHOOK_MAP);
+    const uniqueWebhooks = getUniqueWebhooks(webhookMap);
+
+    await Promise.allSettled(
+      Array.from(uniqueWebhooks).map(async webhookUrl => {
         try {
           const errorNotification = formatErrorForSlack(error, {
             operation: 'scheduled review check',
           });
-          await sendErrorToSlack(webhookUrl.trim(), errorNotification);
+          await sendErrorToSlack(webhookUrl, errorNotification);
         } catch (slackError) {
           console.error(
             `Failed to send error notification to Slack ${webhookUrl}:`,
             slackError,
           );
         }
-      }
-    }
+      }),
+    );
 
     throw error;
   }

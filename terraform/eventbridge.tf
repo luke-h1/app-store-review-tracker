@@ -12,12 +12,11 @@ resource "aws_cloudwatch_event_target" "lambda_review_check" {
 
   # Config can be passed via event detail or environment variables
   input = jsonencode({
-    appleAppIds      = var.apple_app_ids
-    googleAppIds     = var.google_app_ids
-    slackWebhookUrls = var.slack_webhook_urls
-    country          = var.apple_country
-    limit            = var.review_limit
-    sortBy           = "mostRecent"
+    appleAppIds  = var.apple_app_ids
+    googleAppIds = var.google_app_ids
+    country      = var.apple_country
+    limit        = var.review_limit
+    sortBy       = "mostRecent"
   })
 }
 
@@ -50,7 +49,6 @@ resource "aws_lambda_permission" "allow_eventbridge" {
 #       country        = "<country>"
 #       limit          = <limit>
 #       sortBy         = "<sort-by>"
-#       slackWebhookUrl = "<webhook-url>"
 #     })
 #   }
 # }

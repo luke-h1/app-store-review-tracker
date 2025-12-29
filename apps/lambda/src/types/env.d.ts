@@ -6,7 +6,7 @@ declare global {
       DEPLOYED_AT: string;
       APPLE_APP_IDS?: string;
       GOOGLE_APP_IDS?: string;
-      SLACK_WEBHOOK_URLS?: string;
+      APP_SLACK_WEBHOOK_MAP?: string;
       COUNTRY?: string;
       REVIEW_LIMIT?: string;
       SORT_BY?: string;

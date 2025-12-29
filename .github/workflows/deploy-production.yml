@@ -20,7 +20,7 @@ env:
   TF_VAR_certificate_chain: ${{ secrets.CERTIFICATE_CHAIN }}
   TF_VAR_deployed_by: ${{ github.actor }}
   TF_VAR_git_sha: ${{ github.sha }}
-
+  TF_VAR_app_slack_webhook_map: ${{ secrets.APP_SLACK_WEBHOOK_MAP }}
 jobs:
   release:
     name: Deploy production
@@ -40,17 +40,17 @@ jobs:
           export-env: true
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          SLACK_WEBHOOK_URLS: op://ci-cd/review-tracker-prod/SLACK_WEBHOOK_URLS
           APPLE_APP_IDS: op://ci-cd/review-tracker-prod/APPLE_APP_IDS
           API_KEY: op://ci-cd/review-tracker-prod/API_KEY
           ZONE_ID: op://ci-cd/review-tracker-prod/ZONE_ID
+          AWS_SECRET_ACCESS_KEY: op://ci-cd/review-tracker-prod/AWS_SECRET_ACCESS_KEY
+          AWS_ACCESS_KEY_ID: op://ci-cd/review-tracker-prod/AWS_ACCESS_KEY_ID
           OP_ENV_FILE: ".env"
 
       - name: Set Terraform variables
         run: |
           # Convert comma-separated values to JSON arrays for Terraform list variables
           APPLE_APP_IDS_JSON=$(echo "$APPLE_APP_IDS" | jq -R -s -c 'split(",") | map(select(length > 0))')
-          SLACK_WEBHOOK_URLS_JSON=$(echo "$SLACK_WEBHOOK_URLS" | jq -R -s -c 'split(",") | map(select(length > 0))')
           
           {
             echo "TF_VAR_api_key<<EOF"
@@ -62,9 +62,6 @@ jobs:
             echo "TF_VAR_apple_country=gb"
             echo "TF_VAR_apple_app_ids<<EOF"
             echo "$APPLE_APP_IDS_JSON"
-            echo "EOF"
-            echo "TF_VAR_slack_webhook_urls<<EOF"
-            echo "$SLACK_WEBHOOK_URLS_JSON"
             echo "EOF"
           } >> $GITHUB_ENV
           

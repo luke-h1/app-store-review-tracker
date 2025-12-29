@@ -39,6 +39,19 @@ export default [
       'jest/no-identical-title': 'error',
       'jest/prefer-to-have-length': 'warn',
       'jest/valid-expect': 'error',
+      'no-console': 'off',
+    },
+  },
+  {
+    files: ['apps/lambda/**/*.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+  {
+    files: ['apps/web/src/app/api/**/*.ts'],
+    rules: {
+      'no-console': 'off',
     },
   },
   {
@@ -89,7 +102,7 @@ export default [
       'global-require': 0,
       'implicit-arrow-linebreak': 0,
       'import/no-cycle': 0,
-      'no-console': ['off'],
+      'no-console': 0,
       'no-extra-boolean-cast': 0,
       'no-nested-ternary': 0,
       'import/no-cycle': 'error',

@@ -4,6 +4,8 @@ const lambdaActions = {
   healthcheck: 'lambda_route_healthcheck',
   head_healthcheck: 'lambda_route_head_healthcheck',
   version: 'lambda_route_version',
+  reviews: 'lambda_route_reviews',
+  analytics: 'lambda_route_analytics',
   unknown: 'unknown',
   timeout: 'timeout',
 } as const;

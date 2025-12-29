@@ -1,5 +1,5 @@
 import { APIGatewayProxyEventQueryStringParameters } from 'aws-lambda';
-import { getAllReviews, getReviewsByAppId } from '../../services/dynamodb';
+import { dynamodbService } from '../../services/dynamodb';
 
 interface AnalyticsResponse {
   totalReviews: number;
@@ -29,12 +29,10 @@ export const analyticsHandler = async (
     const platform = queryParams?.platform;
     const limit = queryParams?.limit ? parseInt(queryParams.limit, 10) : 1000;
 
-    // Get reviews
     const reviews = appId
-      ? await getReviewsByAppId(appId, platform, limit)
-      : await getAllReviews(limit);
+      ? await dynamodbService.getReviewsByAppId(appId, platform, limit)
+      : await dynamodbService.getAllReviews(limit);
 
-    // Calculate analytics
     const reviewsByApp = new Map<
       string,
       { appId: string; platform: string; count: number; totalRating: number }
@@ -55,7 +53,6 @@ export const analyticsHandler = async (
       }));
 
     for (const review of reviews) {
-      // Group by app
       const key = `${review.platform}#${review.appId}`;
       const existing = reviewsByApp.get(key);
       if (existing) {
@@ -70,7 +67,6 @@ export const analyticsHandler = async (
         });
       }
 
-      // Count by rating
       const ratingKey = review.rating.toString();
       reviewsByRating[ratingKey] = (reviewsByRating[ratingKey] || 0) + 1;
     }

@@ -86,10 +86,10 @@ variable "review_limit" {
   default     = "10"
 }
 
-variable "slack_webhook_urls" {
-  type        = list(string)
-  description = "List of Slack webhook URLs for posting new reviews"
+variable "app_slack_webhook_map" {
+  type        = map(string)
+  description = "Map of app IDs to Slack webhook URLs. Keys should be in format 'platform:appId' (e.g., 'apple:1345907668' or 'google:com.example.app'). Values are the Slack webhook URLs."
   sensitive   = true
-  default     = []
+  default     = {}
 }
 

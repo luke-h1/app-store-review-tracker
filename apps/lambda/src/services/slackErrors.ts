@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import axios from 'axios';
 import { z } from 'zod';
 import { ValidationException } from '../util/validation';
@@ -43,7 +44,7 @@ export const sendErrorToSlack = async (
         type: 'header',
         text: {
           type: 'plain_text',
-          text: `❌ Review Tracker Error`,
+          text: '❌ Review Tracker Error',
         },
       },
       {
@@ -128,21 +129,13 @@ export const formatErrorForSlack = (
     }
 
     // Check if it's an axios error (API request failure)
-    if (
-      'isAxiosError' in error &&
-      (error as { isAxiosError: boolean }).isAxiosError
-    ) {
-      const axiosError = error as {
-        response?: { status?: number; data?: unknown };
-        request?: unknown;
-        message: string;
-      };
-      const status = axiosError.response?.status;
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status;
       const statusText = status ? ` (HTTP ${status})` : '';
       return {
         errorType: 'API Request Error',
         message: `Failed to fetch reviews${statusText}`,
-        details: axiosError.message,
+        details: error.message,
         timestamp: new Date().toISOString(),
       };
     }

@@ -66,17 +66,16 @@ resource "aws_lambda_function" "lambda" {
   architectures = ["arm64"]
   environment {
     variables = {
-      DEPLOYED_AT        = timestamp()
-      DEPLOYED_BY        = var.deployed_by
-      GIT_SHA            = var.git_sha
-      REVIEWS_TABLE_NAME = aws_dynamodb_table.reviews.name
-      AWS_REGION         = "eu-west-2"
-      APPLE_APP_IDS      = join(",", var.apple_app_ids)
-      GOOGLE_APP_IDS     = join(",", var.google_app_ids)
-      APPLE_COUNTRY      = var.apple_country
-      REVIEW_LIMIT       = var.review_limit
-      SLACK_WEBHOOK_URLS = join(",", var.slack_webhook_urls)
-      COUNTRY            = var.apple_country
+      DEPLOYED_AT           = timestamp()
+      DEPLOYED_BY           = var.deployed_by
+      GIT_SHA               = var.git_sha
+      REVIEWS_TABLE_NAME    = aws_dynamodb_table.reviews.name
+      APPLE_APP_IDS         = join(",", var.apple_app_ids)
+      GOOGLE_APP_IDS        = join(",", var.google_app_ids)
+      APPLE_COUNTRY         = var.apple_country
+      REVIEW_LIMIT          = var.review_limit
+      APP_SLACK_WEBHOOK_MAP = jsonencode(var.app_slack_webhook_map)
+      COUNTRY               = var.apple_country
     }
   }
   tags = merge(var.tags, {

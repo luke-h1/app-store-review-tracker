@@ -43,7 +43,3 @@ runs:
     - name: Install dependencies
       shell: bash
       run: bun install
-
-    - name: Check commit message
-      shell: bash
-      run: bun commitlint --from=HEAD^1

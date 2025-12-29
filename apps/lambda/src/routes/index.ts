@@ -1,77 +1,99 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable no-console */
-/* eslint-disable no-shadow */
-/* eslint-disable no-case-declarations */
-
 import healthHandler from '@lambda/handlers/health';
 import reviewHandler from '@lambda/handlers/reviews';
 import versionHandler from '@lambda/handlers/version';
 import { analyticsHandler } from '@lambda/handlers/analytics';
+import triggerReviewHandler from '@lambda/handlers/reviews/trigger';
+import testSlackHandler from '@lambda/handlers/test-slack';
 import {
   APIGatewayProxyEvent,
   APIGatewayProxyEventQueryStringParameters,
 } from 'aws-lambda';
 
+const DEFAULT_HEADERS = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET,OPTIONS,POST,PUT,PATCH,DELETE',
+  'Access-Control-Allow-Headers': 'Content-Type',
+} as const;
+
+const requirePost = (method?: string) => {
+  if (method !== 'POST') {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: 'Method not allowed. Use POST.' }, null, 2),
+    };
+  }
+  return null;
+};
+
 const routes = async (
   path: string,
-  _queryParams: APIGatewayProxyEventQueryStringParameters | null,
+  queryParams: APIGatewayProxyEventQueryStringParameters | null,
   _requestUrl: string,
   event?: APIGatewayProxyEvent,
 ) => {
-  let response: unknown;
-  let statusCode: number;
-
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET,OPTIONS,POST,PUT,PATCH,DELETE',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
-
   if (event?.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers,
-      body: '',
-    };
+    return { statusCode: 200, headers: DEFAULT_HEADERS, body: '' };
   }
 
+  const headers = { ...DEFAULT_HEADERS };
+
   switch (path) {
-    case '/api/reviews': {
-      statusCode = 200;
-      headers['Content-Type'] = 'application/json';
-      response = await reviewHandler(_queryParams);
-      break;
+    case '/api/reviews':
+      return {
+        statusCode: 200,
+        headers,
+        body: await reviewHandler(queryParams),
+      };
+
+    case '/api/trigger': {
+      const methodError = requirePost(event?.httpMethod);
+      if (methodError) return { ...methodError, headers };
+      return {
+        statusCode: 200,
+        headers,
+        body: await triggerReviewHandler(),
+      };
     }
 
-    case '/api/analytics': {
-      statusCode = 200;
-      headers['Content-Type'] = 'application/json';
-      response = await analyticsHandler(_queryParams);
-      break;
-    }
+    case '/api/analytics':
+      return {
+        statusCode: 200,
+        headers,
+        body: await analyticsHandler(queryParams),
+      };
 
-    case '/api/healthcheck': {
-      statusCode = 200;
-      response = healthHandler();
-      break;
-    }
+    case '/api/healthcheck':
+      return {
+        statusCode: 200,
+        headers,
+        body: healthHandler(),
+      };
 
-    case '/api/version': {
-      statusCode = 200;
-      response = versionHandler();
-      break;
+    case '/api/version':
+      return {
+        statusCode: 200,
+        headers,
+        body: versionHandler(),
+      };
+
+    case '/api/test-slack': {
+      const methodError = requirePost(event?.httpMethod);
+      if (methodError) return { ...methodError, headers };
+      return {
+        statusCode: 200,
+        headers,
+        body: await testSlackHandler(),
+      };
     }
 
     default:
-      response = JSON.stringify({ message: 'route not found' }, null, 2);
-      statusCode = 404;
-      break;
+      return {
+        statusCode: 404,
+        headers,
+        body: JSON.stringify({ message: 'route not found' }, null, 2),
+      };
   }
-  return {
-    statusCode,
-    headers,
-    body: response,
-  };
 };
+
 export default routes;

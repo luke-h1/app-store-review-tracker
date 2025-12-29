@@ -131,6 +131,24 @@ resource "aws_apigatewayv2_route" "lambda_route_version" {
   operation_name = "get version"
 }
 
+resource "aws_apigatewayv2_route" "lambda_route_trigger" {
+  api_id             = aws_apigatewayv2_api.lambda.id
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  route_key          = "POST /api/trigger"
+  operation_name     = "trigger review check"
+  authorizer_id      = aws_apigatewayv2_authorizer.api_key.id
+  authorization_type = "CUSTOM"
+}
+
+resource "aws_apigatewayv2_route" "lambda_route_test_slack" {
+  api_id             = aws_apigatewayv2_api.lambda.id
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  route_key          = "POST /api/test-slack"
+  operation_name     = "test slack connection"
+  authorizer_id      = aws_apigatewayv2_authorizer.api_key.id
+  authorization_type = "CUSTOM"
+}
+
 
 ##############################################################################
 

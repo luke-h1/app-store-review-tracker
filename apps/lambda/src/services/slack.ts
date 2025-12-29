@@ -1,50 +1,36 @@
 import axios from 'axios';
 import type { UnifiedReview } from '../types/reviews';
 
-export const postReviewToSlack = async (
-  review: UnifiedReview,
-  webhookUrl: string,
-): Promise<void> => {
-  if (!webhookUrl) {
-    console.warn('Webhook URL not provided, skipping Slack notification');
-    return;
-  }
+const PLATFORM_CONFIG = {
+  apple: { emoji: '🍎', name: 'App Store' },
+  google: { emoji: '🤖', name: 'Google Play' },
+} as const;
 
-  const platformEmoji = review.platform === 'apple' ? '🍎' : '🤖';
+const buildSlackMessage = (review: UnifiedReview) => {
+  const config = PLATFORM_CONFIG[review.platform];
   const stars = '⭐'.repeat(review.rating);
 
-  const message = {
-    text: `New ${review.platform === 'apple' ? 'App Store' : 'Google Play'} Review`,
+  return {
+    text: `New ${config.name} Review`,
     blocks: [
       {
         type: 'header',
         text: {
           type: 'plain_text',
-          text: `${platformEmoji} New ${review.platform === 'apple' ? 'App Store' : 'Google Play'} Review`,
+          text: `${config.emoji} New ${config.name} Review`,
         },
       },
       {
         type: 'section',
         fields: [
-          {
-            type: 'mrkdwn',
-            text: `*Rating:*\n${stars} (${review.rating}/5)`,
-          },
-          {
-            type: 'mrkdwn',
-            text: `*Author:*\n${review.author}`,
-          },
+          { type: 'mrkdwn', text: `*Rating:*\n${stars} (${review.rating}/5)` },
+          { type: 'mrkdwn', text: `*Author:*\n${review.author}` },
           {
             type: 'mrkdwn',
             text: `*Date:*\n${new Date(review.date).toLocaleDateString()}`,
           },
           ...(review.version
-            ? [
-                {
-                  type: 'mrkdwn',
-                  text: `*Version:*\n${review.version}`,
-                },
-              ]
+            ? [{ type: 'mrkdwn', text: `*Version:*\n${review.version}` }]
             : []),
         ],
       },
@@ -57,22 +43,35 @@ export const postReviewToSlack = async (
       },
     ],
   };
-
-  try {
-    await axios.post(webhookUrl, message);
-  } catch (error) {
-    console.error('Error posting to Slack:', error);
-    throw error;
-  }
 };
 
-export const postReviewsToSlack = async (
-  reviews: UnifiedReview[],
-  webhookUrl: string,
-): Promise<void> => {
-  for (const review of reviews) {
-    await postReviewToSlack(review, webhookUrl);
-    // Small delay to avoid rate limiting
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
+export const slackService = {
+  postReview: async (
+    review: UnifiedReview,
+    webhookUrl: string,
+  ): Promise<void> => {
+    if (!webhookUrl?.trim()) {
+      console.warn('Webhook URL not provided, skipping Slack notification');
+      return;
+    }
+
+    try {
+      await axios.post(webhookUrl.trim(), buildSlackMessage(review));
+    } catch (error) {
+      console.error('Error posting to Slack:', error);
+      throw error;
+    }
+  },
+
+  postReviews: async (
+    reviews: UnifiedReview[],
+    webhookUrl: string,
+  ): Promise<void> => {
+    for (const review of reviews) {
+      await slackService.postReview(review, webhookUrl);
+      if (reviews.length > 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+  },
 };

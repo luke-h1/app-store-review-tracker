@@ -13,6 +13,9 @@ export interface AppleReviewEntry {
   };
   content: {
     label: string;
+    attributes?: {
+      type: string;
+    };
   };
   link: {
     attributes: {
@@ -27,6 +30,9 @@ export interface AppleReviewEntry {
     name: {
       label: string;
     };
+    label: string;
+  };
+  updated: {
     label: string;
   };
   'im:voteSum': {
@@ -121,7 +127,6 @@ export interface ReviewHandlerParams {
   sortBy?: 'mostRecent' | 'mostHelpful';
 }
 
-// DynamoDB Review Item
 export interface ReviewItem {
   reviewId: string;
   platform: string;

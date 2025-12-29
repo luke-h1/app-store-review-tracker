@@ -29,21 +29,21 @@ export default function AnalyticsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchAnalytics();
+    void fetchAnalytics();
   }, []);
 
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get('/api/analytics');
+      const response = await axios.get<AnalyticsData>('/api/analytics');
       setData(response.data);
     } catch (err) {
-      setError(
-        axios.isAxiosError(err)
-          ? err.response?.data?.error || 'Failed to fetch analytics'
-          : 'Failed to fetch analytics',
-      );
+      const errorMessage = axios.isAxiosError(err)
+        ? (err.response?.data as { error?: string })?.error ||
+          'Failed to fetch analytics'
+        : 'Failed to fetch analytics';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -86,7 +86,9 @@ export default function AnalyticsPage() {
           </h2>
           <p className="text-gray-600 dark:text-gray-300 mb-4">{error}</p>
           <button
-            onClick={fetchAnalytics}
+            onClick={() => {
+              void fetchAnalytics();
+            }}
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg"
           >
             Retry

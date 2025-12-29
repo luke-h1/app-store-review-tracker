@@ -15,9 +15,6 @@ export class ValidationException extends Error {
   }
 }
 
-/**
- * Zod schema for review handler parameters
- */
 const reviewHandlerParamsSchema = z
   .object({
     appleAppId: z.string().optional(),
@@ -31,9 +28,6 @@ const reviewHandlerParamsSchema = z
     path: ['appIds'],
   });
 
-/**
- * Validates review handler parameters using Zod
- */
 export const validateReviewHandlerParams = (
   params: ReviewHandlerParams,
 ): void => {

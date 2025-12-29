@@ -10,7 +10,7 @@ import type { ReviewHandlerParams, UnifiedReview } from '../../types/reviews';
 
 interface ReviewHandlerResponse {
   success: boolean;
-  reviews: UnifiedReview[];
+  reviews: Record<string, UnifiedReview[]>;
   count: number;
   error?: string;
   validationErrors?: Array<{ field: string; message: string }>;
@@ -71,10 +71,19 @@ const reviewHandler = async (
       );
     }
 
+    const reviewsByApp: Record<string, UnifiedReview[]> = {};
+    for (const review of allReviews) {
+      const key = `${review.platform}:${review.appId}`;
+      if (!reviewsByApp[key]) {
+        reviewsByApp[key] = [];
+      }
+      reviewsByApp[key].push(review);
+    }
+
     return JSON.stringify(
       {
         success: true,
-        reviews: allReviews,
+        reviews: reviewsByApp,
         count: allReviews.length,
       },
       null,
@@ -85,7 +94,7 @@ const reviewHandler = async (
 
     const response: ReviewHandlerResponse = {
       success: false,
-      reviews: [],
+      reviews: {},
       count: 0,
       error: error instanceof Error ? error.message : String(error),
     };

@@ -48,11 +48,25 @@ jobs:
 
       - name: Set Terraform variables
         run: |
-          echo "TF_VAR_api_key=$API_KEY" >> $GITHUB_ENV
-          echo "TF_VAR_zone_id=$ZONE_ID" >> $GITHUB_ENV
-          echo "TF_VAR_apple_country=gb" >> $GITHUB_ENV
-          echo "TF_VAR_apple_app_ids=$APPLE_APP_IDS" >> $GITHUB_ENV
-          echo "TF_VAR_slack_webhook_urls=$SLACK_WEBHOOK_URLS" >> $GITHUB_ENV
+          # Convert comma-separated values to JSON arrays for Terraform list variables
+          APPLE_APP_IDS_JSON=$(echo "$APPLE_APP_IDS" | jq -R -s -c 'split(",") | map(select(length > 0))')
+          SLACK_WEBHOOK_URLS_JSON=$(echo "$SLACK_WEBHOOK_URLS" | jq -R -s -c 'split(",") | map(select(length > 0))')
+          
+          {
+            echo "TF_VAR_api_key<<EOF"
+            echo "$API_KEY"
+            echo "EOF"
+            echo "TF_VAR_zone_id<<EOF"
+            echo "$ZONE_ID"
+            echo "EOF"
+            echo "TF_VAR_apple_country=gb"
+            echo "TF_VAR_apple_app_ids<<EOF"
+            echo "$APPLE_APP_IDS_JSON"
+            echo "EOF"
+            echo "TF_VAR_slack_webhook_urls<<EOF"
+            echo "$SLACK_WEBHOOK_URLS_JSON"
+            echo "EOF"
+          } >> $GITHUB_ENV
           
       - name: Install
         uses: ./.github/actions/install

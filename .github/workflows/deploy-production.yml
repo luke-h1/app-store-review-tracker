@@ -1,0 +1,75 @@
+name: Deploy production
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+concurrency:
+  group: build-production-version
+  cancel-in-progress: false
+permissions:
+  issues: write
+  contents: write
+  pull-requests: write
+
+env:
+  TF_VAR_env: production
+  TF_VAR_root_domain: foam-app.com
+  TF_VAR_private_key: ${{ secrets.PRODUCTION_PRIVATE_KEY }}
+  TF_VAR_certificate_body: ${{ secrets.PRODUCTION_CERTIFICATE_BODY }}
+  TF_VAR_certificate_chain: ${{ secrets.CERTIFICATE_CHAIN }}
+  TF_VAR_deployed_by: ${{ github.actor }}
+  TF_VAR_git_sha: ${{ github.sha }}
+
+jobs:
+  release:
+    name: Deploy production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.head_ref }}
+
+      - name: Load secrets
+        id: load_secrets
+        uses: 1password/load-secrets-action@v3
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          SLACK_WEBHOOK_URLS: op://ci-cd/review-tracker-prod/SLACK_WEBHOOK_URLS
+          APPLE_APP_IDS: op://ci-cd/review-tracker-prod/APPLE_APP_IDS
+          API_KEY: op://ci-cd/review-tracker-prod/API_KEY
+          ZONE_ID: op://ci-cd/review-tracker-prod/ZONE_ID
+          OP_ENV_FILE: ".env"
+
+      - name: Set Terraform variables
+        run: |
+          echo "TF_VAR_api_key=$API_KEY" >> $GITHUB_ENV
+          echo "TF_VAR_zone_id=$ZONE_ID" >> $GITHUB_ENV
+          echo "TF_VAR_apple_country=gb" >> $GITHUB_ENV
+          echo "TF_VAR_apple_app_ids=$APPLE_APP_IDS" >> $GITHUB_ENV
+          echo "TF_VAR_slack_webhook_urls=$SLACK_WEBHOOK_URLS" >> $GITHUB_ENV
+          
+      - name: Install
+        uses: ./.github/actions/install
+
+      - name: Validate
+        uses: ./.github/actions/validate
+
+      - name: Build lambdas
+        shell: bash
+        run: bun run build
+
+      - name: Deploy
+        uses: ./.github/actions/deploy
+        with:
+          environment: production
+          aws-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

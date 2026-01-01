@@ -47,7 +47,8 @@ export const handler: Handler = async (
     queryStringParameters as unknown as string,
   ).toString();
 
-  const url = `https://${apiEvent.headers.Host}${apiEvent.path}?${queryString}`;
+  const host = apiEvent.headers?.Host ?? apiEvent.headers?.host ?? 'unknown';
+  const url = `https://${host}${apiEvent.path}?${queryString}`;
 
   console.info('origin url ->', url);
 

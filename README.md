@@ -1,6 +1,6 @@
 # App Store Review Tracker
 
-Automated tracking and monitoring system for Apple App Store and Google Play Store reviews. Fetches reviews on a schedule, stores them in DynamoDB, and posts new reviews to Slack channels.
+Automated tracking and monitoring system for Apple App Store and Google Play Store reviews. Fetches reviews on a schedule, stores them in DynamoDB, and posts new reviews to Slack, Discord and Telegram.
 
 ## Table of Contents
 
@@ -17,17 +17,17 @@ Automated tracking and monitoring system for Apple App Store and Google Play Sto
 
 ## About
 
-App Store Review Tracker is a serverless application that automatically monitors app reviews from both the Apple App Store and Google Play Store. It runs on a scheduled basis (configurable, default hourly), fetches new reviews, stores them in DynamoDB to track which reviews have already been processed, and posts new reviews to configured Slack channels via webhooks.
+App Store Review Tracker is a serverless application that automatically monitors app reviews from both the Apple App Store and Google Play Store. It runs on a scheduled basis (configurable, default hourly), fetches new reviews, stores them in DynamoDB to track which reviews have already been processed, and posts new reviews to any configured notification channels.
 
-### Slack Notifications
+### Notifications
 
-Reviews are automatically posted to Slack channels with a formatted message showing the review details:
+New reviews are posted to any combination of Slack, Discord and Telegram. Each channel posts to a single destination (one Slack webhook, one Discord webhook, one Telegram chat), so configure whichever you use and leave the rest unset.
 
 ![Slack Review Notification](.github/docs/slack-msg.png)
 
 The system consists of:
 
-- **Lambda Function**: Handles review fetching, storage, and Slack notifications
+- **Lambda Function**: Handles review fetching, storage, and notifications
 - **API Gateway**: Provides REST API endpoints for manual review checks and analytics
 - **EventBridge**: Triggers scheduled review checks
 - **DynamoDB**: Stores review data and tracks processed reviews
@@ -55,7 +55,7 @@ Before you begin, ensure you have the following installed:
 - [Terraform](https://www.terraform.io/downloads) version `1.0` or higher
 - [AWS CLI](https://aws.amazon.com/cli/) configured with appropriate credentials
 - An AWS account with permissions to create Lambda functions, API Gateway, EventBridge rules, DynamoDB tables, and related resources
-- A Slack workspace with webhook URLs for posting reviews (optional but recommended)
+- At least one notification target: a Slack webhook URL, a Discord webhook URL, or a Telegram bot token and chat ID
 
 ## Setup
 
@@ -82,7 +82,9 @@ Copy `terraform/envs/example.tfvars` to create your own environment file (e.g., 
 
 - `apple_app_ids`: List of Apple App Store app IDs to monitor
 - `google_app_ids`: List of Google Play Store app IDs to monitor (currently not fully implemented)
-- `app_slack_webhook_map`: Map of app IDs to Slack webhook URLs (keys: 'platform:appId', values: webhook URLs)
+- `slack_webhook_url`: Slack webhook URL to post new reviews to (optional)
+- `discord_webhook_url`: Discord webhook URL to post new reviews to (optional)
+- `telegram_bot_token` / `telegram_chat_id`: Telegram bot token and chat ID to post new reviews to (optional)
 - `apple_country`: Country code for Apple App Store reviews (e.g., 'gb', 'us')
 - `review_limit`: Maximum number of reviews to fetch per check
 - `api_key`: API key for authorizer authentication
@@ -108,7 +110,11 @@ bun run build
 export REVIEWS_TABLE_NAME=your-table-name
 export AWS_REGION=eu-west-2  # Automatically set by AWS Lambda in production
 export APPLE_APP_IDS=your-app-id
-export APP_SLACK_WEBHOOK_MAP='{"apple:your-app-id":"https://hooks.slack.com/services/..."}'
+# Configure at least one notification target
+export SLACK_WEBHOOK_URL='https://hooks.slack.com/services/...'
+export DISCORD_WEBHOOK_URL='https://discord.com/api/webhooks/...'
+export TELEGRAM_BOT_TOKEN='123456789:your-bot-token'
+export TELEGRAM_CHAT_ID='-1001234567890'
 ```
 
 3. Use AWS SAM or similar tools to test Lambda functions locally, or deploy to a development environment.
@@ -215,14 +221,17 @@ Ensure the `NEXT_PUBLIC_API_URL` environment variable is set to your API Gateway
 
 The Lambda function uses the following environment variables (configured via Terraform):
 
-| Variable                | Description                                       | Example                                                       |
-| ----------------------- | ------------------------------------------------- | ------------------------------------------------------------- |
-| `REVIEWS_TABLE_NAME`    | DynamoDB table name for storing reviews           | `appstore-review-tracker-production-reviews`                  |
-| `APPLE_APP_IDS`         | Comma-separated list of Apple App Store app IDs   | `1345907668,6740410176`                                       |
-| `GOOGLE_APP_IDS`        | Comma-separated list of Google Play Store app IDs | `com.example.app`                                             |
-| `APP_SLACK_WEBHOOK_MAP` | JSON map of app IDs to Slack webhook URLs         | `{"apple:1345907668":"https://hooks.slack.com/services/..."}` |
-| `COUNTRY`               | Country code for Apple App Store reviews          | `gb`                                                          |
-| `REVIEW_LIMIT`          | Maximum number of reviews to fetch per check      | `10`                                                          |
+| Variable             | Description                                       | Example                                      |
+| -------------------- | ------------------------------------------------- | -------------------------------------------- |
+| `REVIEWS_TABLE_NAME` | DynamoDB table name for storing reviews           | `appstore-review-tracker-production-reviews` |
+| `APPLE_APP_IDS`      | Comma-separated list of Apple App Store app IDs   | `1345907668,6740410176`                      |
+| `GOOGLE_APP_IDS`     | Comma-separated list of Google Play Store app IDs | `com.example.app`                            |
+| `SLACK_WEBHOOK_URL`  | Slack webhook URL to post new reviews to          | `https://hooks.slack.com/services/...`       |
+| `DISCORD_WEBHOOK_URL`| Discord webhook URL to post new reviews to        | `https://discord.com/api/webhooks/...`       |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token to post new reviews with       | `123456789:your-bot-token`                   |
+| `TELEGRAM_CHAT_ID`   | Telegram chat ID to post new reviews to           | `-1001234567890`                             |
+| `COUNTRY`            | Country code for Apple App Store reviews          | `gb`                                         |
+| `REVIEW_LIMIT`       | Maximum number of reviews to fetch per check      | `10`                                         |
 
 ### Scheduled Review Checks
 
@@ -246,6 +255,9 @@ The API Gateway exposes the following endpoints:
 - `GET /health` - Health check endpoint
 - `GET /version` - Version information
 - `GET /analytics` - Review analytics data
+- `POST /api/test-slack` - Send a test review to the configured Slack webhook
+- `POST /api/test-discord` - Send a test review to the configured Discord webhook
+- `POST /api/test-telegram` - Send a test review to the configured Telegram chat
 
 All endpoints require authentication via the authorizer (API key).
 
@@ -258,6 +270,8 @@ The application depends on the following external APIs and services:
 | Apple App Store RSS     | Apple App Store customer reviews RSS feed               | `https://itunes.apple.com/{country}/rss/customerreviews/` |
 | Google Play Console API | Google Play Store reviews API (requires authentication) | `https://androidpublisher.googleapis.com/`                |
 | Slack Webhooks          | Slack incoming webhooks for posting reviews             | `https://hooks.slack.com/services/`                       |
+| Discord Webhooks        | Discord webhooks for posting reviews                    | `https://discord.com/api/webhooks/`                       |
+| Telegram Bot API        | Telegram bot sendMessage API for posting reviews        | `https://api.telegram.org/bot{token}/`                    |
 
 > [!NOTE]
 > Google Play Store reviews require authentication via the Google Play Console API. The implementation is currently a placeholder and needs to be completed with proper OAuth2 service account authentication.

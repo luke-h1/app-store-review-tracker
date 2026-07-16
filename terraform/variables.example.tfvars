@@ -67,11 +67,16 @@ apple_country = "gb"
 # Optional: Maximum number of reviews to fetch per check (default: "10")
 review_limit = "10"
 
-# Optional: Map of app IDs to Slack webhook URLs (sensitive, default: {})
-# Keys should be in format 'platform:appId' (e.g., 'apple:1345907668' or 'google:com.example.app')
-# Values are the Slack webhook URLs
-app_slack_webhook_map = {
-  # "apple:1345907668"  = "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
-  # "google:com.example.app" = "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
-}
+# Notification targets. Configure at least one. All reviews are posted to a
+# single destination per channel.
+
+# Optional: Slack webhook URL (sensitive, default: "")
+# slack_webhook_url = "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+
+# Optional: Discord webhook URL (sensitive, default: "")
+# discord_webhook_url = "https://discord.com/api/webhooks/YOUR/WEBHOOK/URL"
+
+# Optional: Telegram bot token and chat ID (sensitive, default: "")
+# telegram_bot_token = "123456789:YOUR-BOT-TOKEN"
+# telegram_chat_id   = "-1001234567890"
 

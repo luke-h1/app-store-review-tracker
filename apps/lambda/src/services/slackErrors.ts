@@ -3,7 +3,7 @@ import axios from 'axios';
 import { z } from 'zod';
 import { ValidationException } from '../util/validation';
 
-interface SlackErrorNotification {
+export interface ErrorNotification {
   errorType: string;
   message: string;
   details?: string;
@@ -16,7 +16,7 @@ interface SlackErrorNotification {
  */
 export const sendErrorToSlack = async (
   webhookUrl: string,
-  error: SlackErrorNotification,
+  error: ErrorNotification,
 ): Promise<void> => {
   if (!webhookUrl) {
     console.warn('No webhook URL provided, cannot send error to Slack');
@@ -95,14 +95,14 @@ export const sendErrorToSlack = async (
 };
 
 /**
- * Formats an error for Slack notification
+ * Formats an error into a platform-neutral notification payload
  */
-export const formatErrorForSlack = (
+export const formatError = (
   error: unknown,
   context?: {
     operation?: string;
   },
-): SlackErrorNotification => {
+): ErrorNotification => {
   const operation = context?.operation || 'Unknown operation';
 
   if (error instanceof Error) {

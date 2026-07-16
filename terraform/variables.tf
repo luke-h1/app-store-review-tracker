@@ -65,7 +65,10 @@ variable "api_key" {
 variable "apple_app_ids" {
   type        = list(string)
   description = "List of Apple App Store app IDs"
-  default     = []
+  default = [
+    # foam
+    "6742071860"
+  ]
 }
 
 variable "google_app_ids" {
@@ -86,10 +89,31 @@ variable "review_limit" {
   default     = "10"
 }
 
-variable "app_slack_webhook_map" {
-  type        = map(string)
-  description = "Map of app IDs to Slack webhook URLs. Keys should be in format 'platform:appId' (e.g., 'apple:1345907668' or 'google:com.example.app'). Values are the Slack webhook URLs."
+variable "slack_webhook_url" {
+  type        = string
+  description = "Slack webhook URL to post new reviews to. All reviews are posted to this single channel."
   sensitive   = true
-  default     = {}
+  default     = ""
+}
+
+variable "discord_webhook_url" {
+  type        = string
+  description = "Discord webhook URL to post new reviews to. All reviews are posted to this single channel."
+  sensitive   = true
+  default     = ""
+}
+
+variable "telegram_bot_token" {
+  type        = string
+  description = "Telegram bot token used to post new reviews. Leave empty to disable Telegram notifications."
+  sensitive   = true
+  default     = ""
+}
+
+variable "telegram_chat_id" {
+  type        = string
+  description = "Telegram chat ID to post new reviews to. All reviews are posted to this single chat."
+  sensitive   = true
+  default     = ""
 }
 

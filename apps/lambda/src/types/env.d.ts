@@ -6,7 +6,10 @@ declare global {
       DEPLOYED_AT: string;
       APPLE_APP_IDS?: string;
       GOOGLE_APP_IDS?: string;
-      APP_SLACK_WEBHOOK_MAP?: string;
+      SLACK_WEBHOOK_URL?: string;
+      DISCORD_WEBHOOK_URL?: string;
+      TELEGRAM_BOT_TOKEN?: string;
+      TELEGRAM_CHAT_ID?: string;
       COUNTRY?: string;
       REVIEW_LIMIT?: string;
       SORT_BY?: string;

@@ -3,7 +3,7 @@ import reviewHandler from '@lambda/handlers/reviews';
 import versionHandler from '@lambda/handlers/version';
 import { analyticsHandler } from '@lambda/handlers/analytics';
 import triggerReviewHandler from '@lambda/handlers/reviews/trigger';
-import testSlackHandler from '@lambda/handlers/test-slack';
+import testNotificationHandler from '@lambda/handlers/test-notification';
 import {
   APIGatewayProxyEvent,
   APIGatewayProxyEventQueryStringParameters,
@@ -77,13 +77,19 @@ const routes = async (
         body: versionHandler(),
       };
 
-    case '/api/test-slack': {
+    case '/api/test-slack':
+    case '/api/test-discord':
+    case '/api/test-telegram': {
       const methodError = requirePost(event?.httpMethod);
       if (methodError) return { ...methodError, headers };
+      const channel = path.replace('/api/test-', '') as
+        | 'slack'
+        | 'discord'
+        | 'telegram';
       return {
         statusCode: 200,
         headers,
-        body: await testSlackHandler(),
+        body: await testNotificationHandler(channel),
       };
     }
 

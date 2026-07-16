@@ -149,6 +149,24 @@ resource "aws_apigatewayv2_route" "lambda_route_test_slack" {
   authorization_type = "CUSTOM"
 }
 
+resource "aws_apigatewayv2_route" "lambda_route_test_discord" {
+  api_id             = aws_apigatewayv2_api.lambda.id
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  route_key          = "POST /api/test-discord"
+  operation_name     = "test discord connection"
+  authorizer_id      = aws_apigatewayv2_authorizer.api_key.id
+  authorization_type = "CUSTOM"
+}
+
+resource "aws_apigatewayv2_route" "lambda_route_test_telegram" {
+  api_id             = aws_apigatewayv2_api.lambda.id
+  target             = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+  route_key          = "POST /api/test-telegram"
+  operation_name     = "test telegram connection"
+  authorizer_id      = aws_apigatewayv2_authorizer.api_key.id
+  authorization_type = "CUSTOM"
+}
+
 
 ##############################################################################
 
